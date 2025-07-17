@@ -1,0 +1,135 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Config
+local TELEPORT_RADIUS = 500000000
+local Y_TOLERANCE = 10000000
+local TELEPORT_DELAY = 0
+
+-- GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FlingAllGui"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 180, 0, 100)
+frame.Position = UDim2.new(0.4, 0, 0.4, 0)
+frame.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 25)
+header.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+header.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 1, 0)
+title.BackgroundTransparency = 1
+title.Text = "Fling All 2.0"
+title.Font = Enum.Font.Sarpanch
+title.TextColor3 = Color3.new(1, 1, 1)
+title.TextSize = 24
+title.Parent = header
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 140, 0, 40)
+toggleButton.Position = UDim2.new(0.5, -70, 0.55, 0)
+toggleButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Text = "Fling All: OFF"
+toggleButton.TextColor3 = Color3.new(0, 0, 0)
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.TextSize = 20
+toggleButton.Parent = frame
+
+-- Helper Functions
+local function getHRP(player)
+	if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+		return player.Character.HumanoidRootPart
+	end
+	return nil
+end
+
+local function isSpectating(player)
+	local char = player.Character
+	if not char then return false end
+	for _, item in ipairs(char:GetChildren()) do
+		if item:IsA("Tool") and item.Name == "Spectator" then
+			return true
+		end
+	end
+	return false
+end
+
+-- Fling/Teleport Logic
+local flingAllEnabled = false
+local flingThread
+
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+	local detection = Instance.new("Decal")
+	detection.Name = "juisdfj0i32i0eidsuf0iok"
+	detection.Parent = ReplicatedStorage
+end
+
+local function flingLoop()
+	local movel = 0.1
+	while flingAllEnabled do
+		local myHRP = getHRP(LocalPlayer)
+		if myHRP then
+			-- Find all valid players within range
+			local validPlayers = {}
+			for _, otherPlayer in ipairs(Players:GetPlayers()) do
+				if otherPlayer ~= LocalPlayer and not isSpectating(otherPlayer) then
+					local otherHRP = getHRP(otherPlayer)
+					if otherHRP then
+						local yDiff = math.abs(myHRP.Position.Y - otherHRP.Position.Y)
+						local distance = (myHRP.Position - otherHRP.Position).Magnitude
+						if distance <= TELEPORT_RADIUS and yDiff <= Y_TOLERANCE then
+							table.insert(validPlayers, otherPlayer)
+						end
+					end
+				end
+			end
+
+			local randomPlayer = nil
+			if #validPlayers > 0 then
+				randomPlayer = validPlayers[math.random(1, #validPlayers)]
+			end
+
+			if randomPlayer then
+				local targetHRP = getHRP(randomPlayer)
+				if targetHRP then
+					myHRP.CFrame = targetHRP.CFrame
+					-- Fling logic
+					local vel = myHRP.Velocity
+					myHRP.Velocity = vel * 10000 + Vector3.new(99999, 10000, 542424)
+					RunService.RenderStepped:Wait()
+					myHRP.Velocity = vel
+					RunService.Stepped:Wait()
+					myHRP.Velocity = vel + Vector3.new(0, movel, 0)
+					movel = -movel
+				end
+			end
+		end
+		task.wait(TELEPORT_DELAY)
+	end
+end
+
+-- Toggle Activation
+toggleButton.MouseButton1Click:Connect(function()
+	flingAllEnabled = not flingAllEnabled
+	toggleButton.Text = flingAllEnabled and "Fling All: ON" or "Fling All: OFF"
+	toggleButton.BackgroundColor3 = flingAllEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
+
+	if flingAllEnabled then
+		flingThread = coroutine.create(flingLoop)
+		coroutine.resume(flingThread)
+	end
+end)
