@@ -1,135 +1,165 @@
--- Services
 local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Config
-local TELEPORT_RADIUS = 500000000
-local Y_TOLERANCE = 10000000
-local TELEPORT_DELAY = 0.14
+-- === SETTINGS ===
+local Targets = {"All"} -- Options: "All", "random", or specific names
+local FlingToggle = false
+local AllBool = false
 
--- GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "FlingAllGui"
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.Parent = PlayerGui
+-- === GUI BUTTON ===
+local ScreenGui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
+ScreenGui.Name = "FlingToggleUI"
+ScreenGui.ResetOnSpawn = false
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 180, 0, 100)
-frame.Position = UDim2.new(0.4, 0, 0.4, 0)
-frame.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
-frame.Active = true
-frame.Draggable = true
-frame.Parent = screenGui
+local Button = Instance.new("TextButton", ScreenGui)
+Button.Size = UDim2.new(0, 120, 0, 40)
+Button.Position = UDim2.new(0, 10, 1, -50)
+Button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+Button.Text = "Fling [OFF]"
+Button.Font = Enum.Font.SourceSansBold
+Button.TextSize = 18
+Button.BorderSizePixel = 0
+Button.BackgroundTransparency = 0.1
+Button.AutoButtonColor = false
 
-local header = Instance.new("Frame")
-header.Size = UDim2.new(1, 0, 0, 25)
-header.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-header.Parent = frame
+Button.MouseButton1Click:Connect(function()
+	FlingToggle = not FlingToggle
+	Button.Text = FlingToggle and "Fling [ON]" or "Fling [OFF]"
+end)
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 1, 0)
-title.BackgroundTransparency = 1
-title.Text = "Fling All 2.0"
-title.Font = Enum.Font.Sarpanch
-title.TextColor3 = Color3.new(1, 1, 1)
-title.TextSize = 24
-title.Parent = header
-
-local toggleButton = Instance.new("TextButton")
-toggleButton.Size = UDim2.new(0, 140, 0, 40)
-toggleButton.Position = UDim2.new(0.5, -70, 0.55, 0)
-toggleButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-toggleButton.Text = "Fling All: OFF"
-toggleButton.TextColor3 = Color3.new(0, 0, 0)
-toggleButton.Font = Enum.Font.SourceSansBold
-toggleButton.TextSize = 20
-toggleButton.Parent = frame
-
--- Helper Functions
-local function getHRP(player)
-	if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-		return player.Character.HumanoidRootPart
-	end
-	return nil
+-- === UTILITIES ===
+local function Message(title, text, duration)
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {
+			Title = title,
+			Text = text,
+			Duration = duration
+		})
+	end)
 end
 
-local function isSpectating(player)
-	local char = player.Character
-	if not char then return false end
-	for _, item in ipairs(char:GetChildren()) do
-		if item:IsA("Tool") and item.Name == "Spectator" then
-			return true
+local function GetPlayer(name)
+	name = name:lower()
+	if name == "all" or name == "others" then
+		AllBool = true
+		return
+	elseif name == "random" then
+		local list = Players:GetPlayers()
+		if #list > 1 then
+			local filtered = {}
+			for _, v in ipairs(list) do
+				if v ~= Player then table.insert(filtered, v) end
+			end
+			return filtered[math.random(#filtered)]
+		end
+	else
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= Player then
+				if p.Name:lower():match("^"..name) or p.DisplayName:lower():match("^"..name) then
+					return p
+				end
+			end
 		end
 	end
-	return false
 end
 
--- Fling/Teleport Logic
-local flingAllEnabled = false
-local flingThread
+-- === FLING FUNCTION ===
+local function SkidFling(TargetPlayer)
+	local Character = Player.Character
+	local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+	local RootPart = Humanoid and Character:FindFirstChild("HumanoidRootPart")
+	if not (Character and Humanoid and RootPart) then return end
 
-if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
-	local detection = Instance.new("Decal")
-	detection.Name = "juisdfj0i32i0eidsuf0iok"
-	detection.Parent = ReplicatedStorage
+	local TCharacter = TargetPlayer.Character
+	local THumanoid = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
+	local TRootPart = THumanoid and TCharacter:FindFirstChild("HumanoidRootPart")
+	local THead = TCharacter and TCharacter:FindFirstChild("Head")
+	local Accessory = TCharacter and TCharacter:FindFirstChildOfClass("Accessory")
+	local Handle = Accessory and Accessory:FindFirstChild("Handle")
+
+	if not (TCharacter and (THead or TRootPart or Handle)) then return end
+	if RootPart.Velocity.Magnitude < 50 then
+		getgenv().OldPos = RootPart.CFrame
+	end
+	if THumanoid and THumanoid.Sit and not AllBool then return end
+
+	local focusPart = THead or TRootPart or Handle
+	if not focusPart then return end
+
+	local function FPos(part, offset, angle)
+		RootPart.CFrame = part.CFrame * offset * angle
+		RootPart.Velocity = Vector3.new(9e8, 9e8, 9e8)
+		RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+	end
+
+	local function SFBasePart(part)
+		local start = tick()
+		local angle = 0
+		local BV = Instance.new("BodyVelocity")
+		BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
+		BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+		BV.Parent = RootPart
+
+		while tick() - start < 0.5 and RootPart and Humanoid and Humanoid.Health > 0 do
+			angle += 100
+			FPos(part, CFrame.new(0, 1.5, 0), CFrame.Angles(math.rad(angle), 0, 0))
+			task.wait(0.05)
+			FPos(part, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(angle), 0, 0))
+			task.wait(0.05)
+		end
+
+		BV:Destroy()
+	end
+
+	Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+	SFBasePart(focusPart)
+	Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+	workspace.CurrentCamera.CameraSubject = Humanoid
+
+	-- Return
+	if getgenv().OldPos then
+		for _ = 1, 5 do
+			if RootPart then
+				RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
+				RootPart.Velocity = Vector3.zero
+				RootPart.RotVelocity = Vector3.zero
+			end
+			task.wait(0.05)
+		end
+	end
 end
 
-local function flingLoop()
-	local movel = 0.1
-	while flingAllEnabled do
-		local myHRP = getHRP(LocalPlayer)
-		if myHRP then
-			-- Find all valid players within range
-			local validPlayers = {}
-			for _, otherPlayer in ipairs(Players:GetPlayers()) do
-				if otherPlayer ~= LocalPlayer and not isSpectating(otherPlayer) then
-					local otherHRP = getHRP(otherPlayer)
-					if otherHRP then
-						local yDiff = math.abs(myHRP.Position.Y - otherHRP.Position.Y)
-						local distance = (myHRP.Position - otherHRP.Position).Magnitude
-						if distance <= TELEPORT_RADIUS and yDiff <= Y_TOLERANCE then
-							table.insert(validPlayers, otherPlayer)
+-- === INFINITE LOOP ===
+task.spawn(function()
+	while true do
+		if FlingToggle and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+			pcall(function()
+				if #Targets > 0 then
+					AllBool = false
+					for _, target in pairs(Targets) do
+						local targetPlayer = GetPlayer(target)
+						if AllBool then
+							for _, other in ipairs(Players:GetPlayers()) do
+								if other ~= Player then SkidFling(other) end
+							end
+						elseif targetPlayer and targetPlayer ~= Player and targetPlayer.UserId ~= 1414978355 then
+							SkidFling(targetPlayer)
 						end
 					end
 				end
-			end
-
-			local randomPlayer = nil
-			if #validPlayers > 0 then
-				randomPlayer = validPlayers[math.random(1, #validPlayers)]
-			end
-
-			if randomPlayer then
-				local targetHRP = getHRP(randomPlayer)
-				if targetHRP then
-					myHRP.CFrame = targetHRP.CFrame
-					-- Fling logic
-					local vel = myHRP.Velocity
-					myHRP.Velocity = vel * 10000 + Vector3.new(99999, 10000, 542424)
-					RunService.RenderStepped:Wait()
-					myHRP.Velocity = vel
-					RunService.Stepped:Wait()
-					myHRP.Velocity = vel + Vector3.new(0, movel, 0)
-					movel = -movel
-				end
-			end
+			end)
 		end
-		task.wait(TELEPORT_DELAY)
-	end
-end
-
--- Toggle Activation
-toggleButton.MouseButton1Click:Connect(function()
-	flingAllEnabled = not flingAllEnabled
-	toggleButton.Text = flingAllEnabled and "Fling All: ON" or "Fling All: OFF"
-	toggleButton.BackgroundColor3 = flingAllEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)
-
-	if flingAllEnabled then
-		flingThread = coroutine.create(flingLoop)
-		coroutine.resume(flingThread)
+		task.wait(0.25) -- Much faster than 2s
 	end
 end)
+
+-- === RESPAWN SUPPORT ===
+Player.CharacterAdded:Connect(function()
+	repeat task.wait() until Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+end)
+
+-- === GREETING ===
+Message("Script by AnthonyIsntHere", "Toggle fling in bottom left", 5)
