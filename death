@@ -4,7 +4,7 @@ local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
 
 -- === SETTINGS ===
-local Targets = {"All"} -- Options: "All", "random", or specific names
+local Targets = {"All"}
 local FlingToggle = false
 local AllBool = false
 
@@ -46,23 +46,6 @@ local function GetPlayer(name)
 	if name == "all" or name == "others" then
 		AllBool = true
 		return
-	elseif name == "random" then
-		local list = Players:GetPlayers()
-		if #list > 1 then
-			local filtered = {}
-			for _, v in ipairs(list) do
-				if v ~= Player then table.insert(filtered, v) end
-			end
-			return filtered[math.random(#filtered)]
-		end
-	else
-		for _, p in ipairs(Players:GetPlayers()) do
-			if p ~= Player then
-				if p.Name:lower():match("^"..name) or p.DisplayName:lower():match("^"..name) then
-					return p
-				end
-			end
-		end
 	end
 end
 
@@ -91,24 +74,24 @@ local function SkidFling(TargetPlayer)
 
 	local function FPos(part, offset, angle)
 		RootPart.CFrame = part.CFrame * offset * angle
-		RootPart.Velocity = Vector3.new(9e8, 9e8, 9e8)
-		RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+		RootPart.Velocity = Vector3.new(1e10, 1e10, 1e10)
+		RootPart.RotVelocity = Vector3.new(1e10, 1e10, 1e10)
 	end
 
 	local function SFBasePart(part)
 		local start = tick()
 		local angle = 0
 		local BV = Instance.new("BodyVelocity")
-		BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
+		BV.Velocity = Vector3.new(1e10, 1e10, 1e10)
 		BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
 		BV.Parent = RootPart
 
-		while tick() - start < 0.5 and RootPart and Humanoid and Humanoid.Health > 0 do
-			angle += 100
-			FPos(part, CFrame.new(0, 1.5, 0), CFrame.Angles(math.rad(angle), 0, 0))
-			task.wait(0.05)
-			FPos(part, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(angle), 0, 0))
-			task.wait(0.05)
+		while tick() - start < 0.75 and RootPart and Humanoid and Humanoid.Health > 0 do
+			angle += 300
+			FPos(part, CFrame.new(0, 2.5, 0), CFrame.Angles(math.rad(angle), 0, 0))
+			task.wait(0.01)
+			FPos(part, CFrame.new(0, -2.5, 0), CFrame.Angles(math.rad(angle), 0, 0))
+			task.wait(0.01)
 		end
 
 		BV:Destroy()
@@ -119,7 +102,6 @@ local function SkidFling(TargetPlayer)
 	Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
 	workspace.CurrentCamera.CameraSubject = Humanoid
 
-	-- Return
 	if getgenv().OldPos then
 		for _ = 1, 5 do
 			if RootPart then
@@ -127,7 +109,7 @@ local function SkidFling(TargetPlayer)
 				RootPart.Velocity = Vector3.zero
 				RootPart.RotVelocity = Vector3.zero
 			end
-			task.wait(0.05)
+			task.wait(0.01)
 		end
 	end
 end
@@ -152,7 +134,7 @@ task.spawn(function()
 				end
 			end)
 		end
-		task.wait(0.25) -- Much faster than 2s
+		task.wait(0.01)
 	end
 end)
 
