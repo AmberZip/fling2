@@ -47,6 +47,11 @@ local function GetPlayer(name)
 		AllBool = true
 		return
 	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player.Name:lower():sub(1, #name) == name then
+			return player
+		end
+	end
 end
 
 -- === FLING FUNCTION ===
@@ -57,61 +62,25 @@ local function SkidFling(TargetPlayer)
 	if not (Character and Humanoid and RootPart) then return end
 
 	local TCharacter = TargetPlayer.Character
-	local THumanoid = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
-	local TRootPart = THumanoid and TCharacter:FindFirstChild("HumanoidRootPart")
-	local THead = TCharacter and TCharacter:FindFirstChild("Head")
-	local Accessory = TCharacter and TCharacter:FindFirstChildOfClass("Accessory")
-	local Handle = Accessory and Accessory:FindFirstChild("Handle")
+	local TRootPart = TCharacter and TCharacter:FindFirstChild("HumanoidRootPart")
+	if not TCharacter or not TRootPart then return end
+	if TRootPart.Position.Magnitude == math.huge then return end
 
-	if not (TCharacter and (THead or TRootPart or Handle)) then return end
-	if RootPart.Velocity.Magnitude < 50 then
-		getgenv().OldPos = RootPart.CFrame
-	end
-	if THumanoid and THumanoid.Sit and not AllBool then return end
+	local BV = Instance.new("BodyVelocity")
+	BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+	BV.Velocity = Vector3.new(0, 0, 0)
+	BV.Parent = RootPart
 
-	local focusPart = THead or TRootPart or Handle
-	if not focusPart then return end
-
-	local function FPos(part, offset, angle)
-		RootPart.CFrame = part.CFrame * offset * angle
+	local start = tick()
+	while tick() - start < 0.4 and Player.Character and TargetPlayer.Character and Humanoid.Health > 0 do
+		local targetPos = TRootPart.Position
+		RootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.5, 0))
 		RootPart.Velocity = Vector3.new(1e10, 1e10, 1e10)
 		RootPart.RotVelocity = Vector3.new(1e10, 1e10, 1e10)
+		task.wait(0.005)
 	end
 
-	local function SFBasePart(part)
-		local start = tick()
-		local angle = 0
-		local BV = Instance.new("BodyVelocity")
-		BV.Velocity = Vector3.new(1e10, 1e10, 1e10)
-		BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-		BV.Parent = RootPart
-
-		while tick() - start < 0.75 and RootPart and Humanoid and Humanoid.Health > 0 do
-			angle += 300
-			FPos(part, CFrame.new(0, 2.5, 0), CFrame.Angles(math.rad(angle), 0, 0))
-			task.wait(0.01)
-			FPos(part, CFrame.new(0, -2.5, 0), CFrame.Angles(math.rad(angle), 0, 0))
-			task.wait(0.01)
-		end
-
-		BV:Destroy()
-	end
-
-	Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-	SFBasePart(focusPart)
-	Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-	workspace.CurrentCamera.CameraSubject = Humanoid
-
-	if getgenv().OldPos then
-		for _ = 1, 5 do
-			if RootPart then
-				RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
-				RootPart.Velocity = Vector3.zero
-				RootPart.RotVelocity = Vector3.zero
-			end
-			task.wait(0.01)
-		end
-	end
+	BV:Destroy()
 end
 
 -- === INFINITE LOOP ===
@@ -134,7 +103,7 @@ task.spawn(function()
 				end
 			end)
 		end
-		task.wait(0.01)
+		task.wait(0.005) -- 10x faster
 	end
 end)
 
