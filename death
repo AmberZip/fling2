@@ -8,7 +8,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 -- Config
 local TELEPORT_RADIUS = 500000000
 local Y_TOLERANCE = 10000000
-local TELEPORT_DELAY = 0.07
+local TELEPORT_DELAY = 0.14
 
 -- GUI
 local screenGui = Instance.new("ScreenGui")
