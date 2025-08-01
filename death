@@ -47,7 +47,11 @@ local function GetPlayer(name)
 		AllBool = true
 		return
 	end
-	-- You can add code here to get player by name if needed
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= Player and p.Name:lower():sub(1, #name) == name then
+			return p
+		end
+	end
 end
 
 -- === FLING FUNCTION ===
@@ -74,13 +78,18 @@ local function SkidFling(TargetPlayer)
 		getgenv().OldPos = RootPart.CFrame
 	end
 
+	local AVOID_POSITION = Vector3.new(-924.05, 304.54, -1.9)
+	local function isNearAvoidPos(pos)
+		return (pos - AVOID_POSITION).Magnitude < 20
+	end
+
 	local function FPos(part, offset, angle)
 		RootPart.CFrame = part.CFrame * offset * angle
 		RootPart.Velocity = Vector3.new(1e10, 1e10, 1e10)
 		RootPart.RotVelocity = Vector3.new(1e10, 1e10, 1e10)
 	end
 
-	-- Improved fling: continuously follow moving target rapidly
+	-- Improved fling with avoidance + fling target toward position
 	local function SFBasePart(part)
 		local start = tick()
 		local angle = 0
@@ -90,11 +99,25 @@ local function SkidFling(TargetPlayer)
 		BV.Parent = RootPart
 
 		while FlingToggle and tick() - start < 1.5 and RootPart and Humanoid and Humanoid.Health > 0 do
+			-- Avoid AVOID_POSITION
+			if isNearAvoidPos(RootPart.Position) then
+				RootPart.CFrame = CFrame.new(AVOID_POSITION + Vector3.new(500, 500, 500))
+				RootPart.Velocity = Vector3.zero
+				RootPart.RotVelocity = Vector3.zero
+				break
+			end
+
 			angle += 360
-			-- Oscillate up and down quickly while spinning around the target part to cause fling
-			FPos(part, CFrame.new(0, 2.7, 0), CFrame.Angles(math.rad(angle), 0, 0))
+
+			-- Set the fling direction toward the target position
+			local flingDirection = (AVOID_POSITION - part.Position).Unit * 3
+			local offset = CFrame.new(flingDirection) * CFrame.new(0, 2.7, 0)
+			local angleCFrame = CFrame.Angles(math.rad(angle), 0, 0)
+			FPos(part, offset, angleCFrame)
 			task.wait(0.008)
-			FPos(part, CFrame.new(0, -2.7, 0), CFrame.Angles(math.rad(angle), 0, 0))
+
+			offset = CFrame.new(flingDirection) * CFrame.new(0, -2.7, 0)
+			FPos(part, offset, angleCFrame)
 			task.wait(0.008)
 		end
 
