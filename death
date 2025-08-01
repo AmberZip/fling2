@@ -105,7 +105,7 @@ local function SkidFling(TargetPlayer)
 		local start = tick()
 		local angle = 0
 		local BV = Instance.new("BodyVelocity")
-		BV.Velocity = Vector3.new(1e15, 1e15, 1e15)
+		BV.Velocity = Vector3.new(1e10, 1e10, 1e10)
 		BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
 		BV.Parent = RootPart
 
