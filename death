@@ -4,7 +4,7 @@ local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
 
 -- === SETTINGS ===
-local Targets = {"All"} -- "All" to fling everyone else
+local Targets = {"All"}
 local FlingToggle = false
 local AllBool = false
 local DANGER_POS = Vector3.new(-924.05, 304.54, -1.9)
@@ -67,7 +67,7 @@ local function EscapeDanger()
 		local directionAway = (hrp.Position - DANGER_POS).Unit
 		local safePos = hrp.Position + directionAway * (ESCAPE_DISTANCE + 10)
 		hrp.CFrame = CFrame.new(safePos)
-		hrp.Velocity = directionAway * 100
+		hrp.Velocity = directionAway * 150
 	end
 end
 
@@ -81,63 +81,36 @@ local function SkidFling(TargetPlayer)
 	local TCharacter = TargetPlayer.Character
 	local THumanoid = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
 	local TRootPart = THumanoid and TCharacter:FindFirstChild("HumanoidRootPart")
-	local THead = TCharacter and TCharacter:FindFirstChild("Head")
-	local Accessory = TCharacter and TCharacter:FindFirstChildOfClass("Accessory")
-	local Handle = Accessory and Accessory:FindFirstChild("Handle")
+	if not (TCharacter and TRootPart and THumanoid and THumanoid.Health > 0) then return end
 
-	if not (TCharacter and (THead or TRootPart or Handle)) then return end
-	if THumanoid and THumanoid.Sit and not AllBool then return end
-
-	local focusPart = THead or TRootPart or Handle
-	if not focusPart then return end
-
-	if RootPart.Velocity.Magnitude < 50 then
-		getgenv().OldPos = RootPart.CFrame
-	end
-
-	local function FPos(part, offset, angle)
-		RootPart.CFrame = part.CFrame * offset * angle
-		RootPart.Velocity = Vector3.new(1e10, 1e10, 1e10)
-		RootPart.RotVelocity = Vector3.new(1e10, 1e10, 1e10)
-	end
-
-	local function SFBasePart(part)
-		local start = tick()
-		local angle = 0
-		local BV = Instance.new("BodyVelocity")
-		BV.Velocity = Vector3.new(1e15, 1e15, 1e15)
-		BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-		BV.Parent = RootPart
-
-		while FlingToggle and tick() - start < 1.5 and RootPart and Humanoid and Humanoid.Health > 0 do
-			angle += 360
-
-			EscapeDanger()
-
-			FPos(part, CFrame.new(0, 2.7, 0), CFrame.Angles(math.rad(angle), 0, 0))
-			task.wait(0.008)
-			FPos(part, CFrame.new(0, -2.7, 0), CFrame.Angles(math.rad(angle), 0, 0))
-			task.wait(0.008)
-		end
-
-		BV:Destroy()
-	end
+	if THumanoid.Sit and not AllBool then return end
 
 	Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-	SFBasePart(focusPart)
-	Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-	workspace.CurrentCamera.CameraSubject = Humanoid
 
-	if getgenv().OldPos then
-		for _ = 1, 5 do
-			if RootPart then
-				RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
-				RootPart.Velocity = Vector3.zero
-				RootPart.RotVelocity = Vector3.zero
-			end
-			task.wait(0)
-		end
+	local BV = Instance.new("BodyVelocity")
+	BV.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+	BV.Velocity = Vector3.zero
+	BV.Parent = RootPart
+
+	local duration = 1.5
+	local start = tick()
+
+	while tick() - start < duration and FlingToggle and Humanoid.Health > 0 do
+		if not TCharacter or not TRootPart then break end
+
+		local targetPos = TRootPart.Position
+		local direction = (targetPos - RootPart.Position).Unit
+		BV.Velocity = direction * 831237 -- aggressively chase target
+
+		-- Spin violently to ensure fling
+		RootPart.RotVelocity = Vector3.new(9999999, 99999999, 99999999)
+
+		EscapeDanger()
+		RunService.Heartbeat:Wait()
 	end
+
+	BV:Destroy()
+	Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
 end
 
 -- === INFINITE LOOP ===
