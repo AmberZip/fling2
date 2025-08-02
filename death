@@ -60,13 +60,25 @@ local function cleanPhysics()
 	end
 end
 
+-- Clamp X/Z within 10000 and Y >= -30
+local function clampPosition()
+	local pos = RootPart.Position
+	local clamped = Vector3.new(
+		math.clamp(pos.X, -10000, 10000),
+		math.max(pos.Y, -30),
+		math.clamp(pos.Z, -10000, 10000)
+	)
+	if (clamped - pos).Magnitude > 1 then
+		RootPart.CFrame = CFrame.new(clamped)
+	end
+end
+
 -- Called on respawn
 local function onCharacterAdded(char)
 	Character = char
 	char:WaitForChild("HumanoidRootPart")
 	RootPart = char.HumanoidRootPart
 
-	-- Clean up and reset state
 	wait(0.1)
 	cleanPhysics()
 	removeAllTools()
@@ -99,8 +111,9 @@ RunService.Heartbeat:Connect(function()
 	if not flingEnabled then return end
 	if not Character or not RootPart or not Character:FindFirstChild("Humanoid") or Character.Humanoid.Health <= 0 then return end
 
-	-- Just in case tools or physics come back
+	clampPosition()
 	removeAllTools()
+
 	if not BV or not BV.Parent then
 		applyBodyVelocity()
 	end
