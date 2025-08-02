@@ -55,20 +55,12 @@ local function getNearestTarget()
 	return nearestPlayer
 end
 
-local function updateTool()
+-- Remove all tools from character permanently
+local function removeAllTools()
 	for _, item in pairs(Character:GetChildren()) do
 		if item:IsA("Tool") then
-			return item
+			item:Destroy()
 		end
-	end
-	return nil
-end
-
-local function activateTool(tool)
-	if tool and tool.Parent == Character then
-		pcall(function()
-			tool:Activate()
-		end)
 	end
 end
 
@@ -92,6 +84,7 @@ local function onCharacterAdded(char)
 	BV.Parent = RootPart
 	disableFlingTimer = 3.5
 	glideToSafePosition()
+	removeAllTools() -- Remove tools right when character spawns
 end
 
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
@@ -106,8 +99,7 @@ RunService.Heartbeat:Connect(function(dt)
 		return
 	end
 
-	local tool = updateTool()
-	activateTool(tool)
+	removeAllTools() -- Keep removing any tools that might appear (just in case)
 
 	local targetPlayer = getNearestTarget()
 	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
