@@ -150,7 +150,7 @@ RunService.Heartbeat:Connect(function(dt)
 		local desiredPos = targetRoot.Position + offset
 		local currentPos = RootPart.Position
 		local direction = (desiredPos - currentPos).Unit
-		local speed = 999999
+		local speed = 400
 		local velocity = direction * speed
 
 		BV.Velocity = velocity
