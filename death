@@ -2,16 +2,13 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
+Players.CharacterAutoLoads = true
+
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local RootPart = Character:WaitForChild("HumanoidRootPart")
 
 local flingEnabled = false
-
--- BodyVelocity for fling
-local BV = Instance.new("BodyVelocity")
-BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-BV.Velocity = Vector3.new(1e10, 1e10, 1e10)
-BV.Parent = RootPart
+local BV = nil
 
 -- UI toggle
 local screenGui = Instance.new("ScreenGui")
@@ -34,7 +31,7 @@ toggleButton.MouseButton1Click:Connect(function()
 	toggleButton.Text = "Fling: " .. (flingEnabled and "ON" or "OFF")
 end)
 
--- Deletes all tools
+-- Clean tools
 local function removeAllTools()
 	for _, item in pairs(Character:GetChildren()) do
 		if item:IsA("Tool") then
@@ -43,17 +40,42 @@ local function removeAllTools()
 	end
 end
 
--- Reapply values on character respawn
+-- Add BodyVelocity
+local function applyBodyVelocity()
+	if BV then
+		BV:Destroy()
+	end
+	BV = Instance.new("BodyVelocity")
+	BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+	BV.Velocity = Vector3.new(1e10, 1e10, 1e10)
+	BV.Parent = RootPart
+end
+
+-- Clean up physics that can break respawn
+local function cleanPhysics()
+	for _, obj in ipairs(Character:GetDescendants()) do
+		if obj:IsA("BodyMover") or obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") then
+			obj:Destroy()
+		end
+	end
+end
+
+-- Called on respawn
 local function onCharacterAdded(char)
 	Character = char
-	RootPart = char:WaitForChild("HumanoidRootPart")
-	BV.Parent = RootPart
+	char:WaitForChild("HumanoidRootPart")
+	RootPart = char.HumanoidRootPart
+
+	-- Clean up and reset state
+	wait(0.1)
+	cleanPhysics()
 	removeAllTools()
+	applyBodyVelocity()
 end
 
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- Returns the nearest player under Y=250
+-- Get nearest player under Y=250
 local function getNearestTarget()
 	local nearestPlayer = nil
 	local nearestDist = math.huge
@@ -72,11 +94,16 @@ local function getNearestTarget()
 	return nearestPlayer
 end
 
--- Main loop
+-- Fling logic
 RunService.Heartbeat:Connect(function()
 	if not flingEnabled then return end
+	if not Character or not RootPart or not Character:FindFirstChild("Humanoid") or Character.Humanoid.Health <= 0 then return end
 
-	removeAllTools() -- keep inventory clear
+	-- Just in case tools or physics come back
+	removeAllTools()
+	if not BV or not BV.Parent then
+		applyBodyVelocity()
+	end
 
 	local targetPlayer = getNearestTarget()
 	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
