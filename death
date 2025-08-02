@@ -6,9 +6,11 @@ Players.CharacterAutoLoads = true
 
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local RootPart = Character:WaitForChild("HumanoidRootPart")
+local Humanoid = Character:WaitForChild("Humanoid")
 
 local flingEnabled = false
 local BV = nil
+local cleaningUp = false
 
 -- UI toggle
 local screenGui = Instance.new("ScreenGui")
@@ -31,7 +33,7 @@ toggleButton.MouseButton1Click:Connect(function()
 	toggleButton.Text = "Fling: " .. (flingEnabled and "ON" or "OFF")
 end)
 
--- Clean tools
+-- Deletes all tools
 local function removeAllTools()
 	for _, item in pairs(Character:GetChildren()) do
 		if item:IsA("Tool") then
@@ -40,18 +42,7 @@ local function removeAllTools()
 	end
 end
 
--- Add BodyVelocity
-local function applyBodyVelocity()
-	if BV then
-		BV:Destroy()
-	end
-	BV = Instance.new("BodyVelocity")
-	BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-	BV.Velocity = Vector3.new(1e10, 1e10, 1e10)
-	BV.Parent = RootPart
-end
-
--- Clean up physics that can break respawn
+-- Clean up physics
 local function cleanPhysics()
 	for _, obj in ipairs(Character:GetDescendants()) do
 		if obj:IsA("BodyMover") or obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") then
@@ -60,7 +51,7 @@ local function cleanPhysics()
 	end
 end
 
--- Clamp X/Z within 10000 and Y >= -30
+-- Clamp character position to prevent physics bugs
 local function clampPosition()
 	local pos = RootPart.Position
 	local clamped = Vector3.new(
@@ -73,59 +64,75 @@ local function clampPosition()
 	end
 end
 
--- Called on respawn
-local function onCharacterAdded(char)
-	Character = char
-	char:WaitForChild("HumanoidRootPart")
-	RootPart = char.HumanoidRootPart
+-- Create fling velocity
+local function applyBodyVelocity()
+	if BV then BV:Destroy() end
+	BV = Instance.new("BodyVelocity")
+	BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+	BV.Velocity = RootPart.CFrame.LookVector * 9999
+	BV.Name = "SafeFlingBV"
+	BV.Parent = RootPart
+end
 
-	wait(0.1)
-	cleanPhysics()
+-- Handle respawn
+local function onCharacterAdded(char)
+	cleaningUp = false
+	Character = char
+	RootPart = char:WaitForChild("HumanoidRootPart")
+	Humanoid = char:WaitForChild("Humanoid")
+
 	removeAllTools()
 	applyBodyVelocity()
+
+	Humanoid.Died:Connect(function()
+		cleaningUp = true
+		if BV then BV:Destroy() end
+	end)
 end
 
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- Get nearest player under Y=250
+-- Target logic
 local function getNearestTarget()
-	local nearestPlayer = nil
+	local nearest = nil
 	local nearestDist = math.huge
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			local targetRoot = player.Character.HumanoidRootPart
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+			local targetRoot = p.Character.HumanoidRootPart
 			if targetRoot.Position.Y <= 250 then
 				local dist = (targetRoot.Position - RootPart.Position).Magnitude
 				if dist < nearestDist then
 					nearestDist = dist
-					nearestPlayer = player
+					nearest = p
 				end
 			end
 		end
 	end
-	return nearestPlayer
+	return nearest
 end
 
--- Fling logic
+-- Main loop
 RunService.Heartbeat:Connect(function()
 	if not flingEnabled then return end
-	if not Character or not RootPart or not Character:FindFirstChild("Humanoid") or Character.Humanoid.Health <= 0 then return end
+	if not Character or not RootPart or not Humanoid then return end
+	if Humanoid.Health <= 0 or cleaningUp then return end
 
-	clampPosition()
 	removeAllTools()
+	clampPosition()
 
 	if not BV or not BV.Parent then
 		applyBodyVelocity()
 	end
 
-	local targetPlayer = getNearestTarget()
-	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-		local targetRoot = targetPlayer.Character.HumanoidRootPart
+	local target = getNearestTarget()
+	if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+		local targetRoot = target.Character.HumanoidRootPart
 		local offset = Vector3.new(
 			math.random(-10, 10) * 0.05,
 			math.random(0, 10) * 0.1,
 			math.random(-10, 10) * 0.05
 		)
-		RootPart.CFrame = CFrame.new(targetRoot.Position + offset)
+		local newPos = targetRoot.Position + offset
+		RootPart.CFrame = CFrame.new(newPos)
 	end
 end)
