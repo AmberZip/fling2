@@ -1,22 +1,19 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local StarterGui = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local RootPart = Character:WaitForChild("HumanoidRootPart")
 
 local flingEnabled = false
-local disableFlingTimer = 0
-local safePosition = Vector3.new(0, 50, 0) -- Adjust safe position as needed
 
+-- BodyVelocity for fling
 local BV = Instance.new("BodyVelocity")
 BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
 BV.Velocity = Vector3.new(1e10, 1e10, 1e10)
 BV.Parent = RootPart
 
--- Create UI toggle button
+-- UI toggle
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "FlingToggleGui"
 screenGui.ResetOnSpawn = false
@@ -24,9 +21,9 @@ screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 120, 0, 40)
-toggleButton.Position = UDim2.new(0, 10, 1, -50) -- bottom-left corner
+toggleButton.Position = UDim2.new(0, 10, 1, -50)
 toggleButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-toggleButton.TextColor3 = Color3.new(1,1,1)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
 toggleButton.Font = Enum.Font.SourceSansBold
 toggleButton.TextSize = 20
 toggleButton.Text = "Fling: OFF"
@@ -37,13 +34,33 @@ toggleButton.MouseButton1Click:Connect(function()
 	toggleButton.Text = "Fling: " .. (flingEnabled and "ON" or "OFF")
 end)
 
+-- Deletes all tools
+local function removeAllTools()
+	for _, item in pairs(Character:GetChildren()) do
+		if item:IsA("Tool") then
+			item:Destroy()
+		end
+	end
+end
+
+-- Reapply values on character respawn
+local function onCharacterAdded(char)
+	Character = char
+	RootPart = char:WaitForChild("HumanoidRootPart")
+	BV.Parent = RootPart
+	removeAllTools()
+end
+
+LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+
+-- Returns the nearest player under Y=250
 local function getNearestTarget()
 	local nearestPlayer = nil
 	local nearestDist = math.huge
 	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
 			local targetRoot = player.Character.HumanoidRootPart
-			if targetRoot.Position.Y <= 250 then -- Only targets below Y=250
+			if targetRoot.Position.Y <= 250 then
 				local dist = (targetRoot.Position - RootPart.Position).Magnitude
 				if dist < nearestDist then
 					nearestDist = dist
@@ -55,59 +72,18 @@ local function getNearestTarget()
 	return nearestPlayer
 end
 
--- Remove all tools from character permanently
-local function removeAllTools()
-	for _, item in pairs(Character:GetChildren()) do
-		if item:IsA("Tool") then
-			item:Destroy()
-		end
-	end
-end
+-- Main loop
+RunService.Heartbeat:Connect(function()
+	if not flingEnabled then return end
 
-local function glideToSafePosition()
-	local bodyPos = Instance.new("BodyPosition")
-	bodyPos.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	bodyPos.P = 1e4
-	bodyPos.D = 100
-	bodyPos.Position = safePosition
-	bodyPos.Parent = RootPart
-
-	-- Remove after 2 seconds
-	delay(2, function()
-		bodyPos:Destroy()
-	end)
-end
-
-local function onCharacterAdded(char)
-	Character = char
-	RootPart = char:WaitForChild("HumanoidRootPart")
-	BV.Parent = RootPart
-	disableFlingTimer = 3.5
-	glideToSafePosition()
-	removeAllTools() -- Remove tools right when character spawns
-end
-
-LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
-
-RunService.Heartbeat:Connect(function(dt)
-	if disableFlingTimer > 0 then
-		disableFlingTimer = disableFlingTimer - dt
-		return
-	end
-
-	if not flingEnabled then
-		return
-	end
-
-	removeAllTools() -- Keep removing any tools that might appear (just in case)
+	removeAllTools() -- keep inventory clear
 
 	local targetPlayer = getNearestTarget()
 	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
 		local targetRoot = targetPlayer.Character.HumanoidRootPart
-		-- Super tight offset close to exact target position
 		local offset = Vector3.new(
-			math.random(-10, 10) * 0.05,  -- tiny random jitter
-			math.random(0, 10) * 0.1,    -- tiny vertical jitter
+			math.random(-10, 10) * 0.05,
+			math.random(0, 10) * 0.1,
 			math.random(-10, 10) * 0.05
 		)
 		RootPart.CFrame = CFrame.new(targetRoot.Position + offset)
