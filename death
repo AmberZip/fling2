@@ -50,7 +50,7 @@ local function hasSpectatorTool(player)
 	return check(player.Backpack) or check(player.Character)
 end
 
--- Get nearest valid target
+-- Get nearest valid target (no Y limit)
 local function getNearestTarget()
 	local nearestPlayer = nil
 	local nearestDist = math.huge
@@ -63,12 +63,10 @@ local function getNearestTarget()
 			and not hasSpectatorTool(player) then
 
 			local targetRoot = player.Character.HumanoidRootPart
-			if targetRoot.Position.Y <= 250 then
-				local dist = (targetRoot.Position - RootPart.Position).Magnitude
-				if dist < nearestDist then
-					nearestDist = dist
-					nearestPlayer = player
-				end
+			local dist = (targetRoot.Position - RootPart.Position).Magnitude
+			if dist < nearestDist then
+				nearestDist = dist
+				nearestPlayer = player
 			end
 		end
 	end
