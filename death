@@ -50,7 +50,7 @@ local function hasSpectatorTool(player)
 	return check(player.Backpack) or check(player.Character)
 end
 
--- Modified getNearestTarget to refuse players with Y > 315
+-- Refuse players with Y > 315
 local function getNearestTarget()
 	local nearestPlayer = nil
 	local nearestDist = math.huge
@@ -63,11 +63,7 @@ local function getNearestTarget()
 			and not hasSpectatorTool(player) then
 
 			local targetRoot = player.Character.HumanoidRootPart
-
-			-- Refuse players above Y=315
-			if targetRoot.Position.Y > 315 then
-				continue
-			end
+			if targetRoot.Position.Y > 315 then continue end
 
 			local dist = (targetRoot.Position - RootPart.Position).Magnitude
 			if dist < nearestDist then
@@ -81,55 +77,7 @@ end
 
 -- For delaying tool activation
 local lastSlapTime = 0
-local slapCooldown = 1 -- 1 second delay between activates
-
-RunService.Heartbeat:Connect(function(dt)
-	if disableFlingTimer > 0 then
-		disableFlingTimer = disableFlingTimer - dt
-		return
-	end
-
-	if not flingEnabled then
-		BV.Velocity = Vector3.zero
-		return
-	end
-
-	local targetPlayer = getNearestTarget()
-	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-		local targetRoot = targetPlayer.Character.HumanoidRootPart
-
-		local offset = Vector3.new(
-			math.random(-10, 10) * 0.05,
-			math.random(0, 10) * 0.1,
-			math.random(-10, 10) * 0.05
-		)
-
-		local desiredPos = targetRoot.Position + offset
-		local currentPos = RootPart.Position
-		local direction = (desiredPos - currentPos).Unit
-		local speed = 666
-		local velocity = direction * speed
-
-		BV.Velocity = velocity
-
-		-- Smoothly snap closer if falling behind
-		if (desiredPos - currentPos).Magnitude > 30 then
-			RootPart.CFrame = CFrame.new(currentPos:Lerp(desiredPos, 0.3))
-		end
-
-		-- Only activate tool every 1 second
-		lastSlapTime = lastSlapTime + dt
-		if lastSlapTime >= slapCooldown then
-			local tool = updateTool()
-			activateTool(tool)
-			lastSlapTime = 0
-		end
-	else
-		BV.Velocity = Vector3.zero
-		lastSlapTime = 0
-	end
-end)
-
+local slapCooldown = 1
 
 -- Check for equipped tool
 local function updateTool()
@@ -150,7 +98,7 @@ local function activateTool(tool)
 	end
 end
 
--- Move to safe spawn position on respawn
+-- Move to safe spawn position
 local function glideToSafePosition()
 	local bodyPos = Instance.new("BodyPosition")
 	bodyPos.MaxForce = Vector3.new(1e5, 1e5, 1e5)
@@ -168,6 +116,8 @@ end
 local function onCharacterAdded(char)
 	Character = char
 	RootPart = char:WaitForChild("HumanoidRootPart")
+	local humanoid = char:WaitForChild("Humanoid")
+	humanoid.WalkSpeed = 50 -- Higher walk speed for faster chasing
 	BV = Instance.new("BodyVelocity")
 	BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
 	BV.Velocity = Vector3.zero
@@ -178,7 +128,7 @@ end
 
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- Main fling loop
+-- Main fling logic
 RunService.Heartbeat:Connect(function(dt)
 	if disableFlingTimer > 0 then
 		disableFlingTimer = disableFlingTimer - dt
@@ -211,11 +161,18 @@ RunService.Heartbeat:Connect(function(dt)
 
 		BV.Velocity = velocity
 
-		-- Smoothly snap closer if falling behind
 		if (desiredPos - currentPos).Magnitude > 30 then
-			RootPart.CFrame = CFrame.new(currentPos:Lerp(desiredPos, 0.3))
+			RootPart.CFrame = CFrame.new(currentPos:Lerp(desiredPos, 0.5)) -- Faster snapping
+		end
+
+		lastSlapTime = lastSlapTime + dt
+		if lastSlapTime >= slapCooldown then
+			local tool = updateTool()
+			activateTool(tool)
+			lastSlapTime = 0
 		end
 	else
 		BV.Velocity = Vector3.zero
+		lastSlapTime = 0
 	end
 end)
