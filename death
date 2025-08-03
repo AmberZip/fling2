@@ -1,221 +1,231 @@
+local TextChatService = game:GetService("TextChatService")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
-
 local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local RootPart = Character:WaitForChild("HumanoidRootPart")
+local channel = TextChatService.TextChannels:WaitForChild("RBXGeneral")
 
-local flingEnabled = false
-local disableFlingTimer = 0
-local safePosition = Vector3.new(0, 50, 0) -- Adjust safe respawn glide location
+-- === Random Chat Spam Messages (Slap Battles Theme) ===
+local messages = {
+    -- Original 30
+    "You get slapped more than a mosquito in summer 🦟",
+    "Your glove choice says 'perma L' 😭",
+    "Imagine missing a slap point blank 💀",
+    "You're the reason the void exists 😹",
+    "Your KD is just K for Krusty 🤡",
+    "Not even Bob would waste time on you 🪦",
+    "You die faster than someone with default glove in slap royale ☠️",
+    "Slap power: 0. Brain power: also 0 🔌",
+    "I’ve seen rock gloves do more than you 🪨",
+    "Your game sense is like RNG—nonexistent 🎲",
+    "Even the table glove wouldn’t carry you 📉",
+    "Bro got pinged into the next lobby 📡",
+    "You slap like you're asking politely 🫴",
+    "Your glove's better than your skill—barely 🤖",
+    "Only thing you combo is respawns 🔁",
+    "You must think the void gives points 😭",
+    "Your only W is watching others win 👀",
+    "Bob sees you and walks away 💀",
+    "You'd miss with extended reach 😐",
+    "You fell off harder than Elude glove 😬",
+    "Bro gets juked by AFK players 🤡",
+    "You're the NPC Slapple warns us about 🤖",
+    "Your slaps are weaker than Woah glove 💨",
+    "You panic teleport into the void 😹",
+    "Skill diff so wide it’s a canyon 🌄",
+    "Even Reverse doesn't want your slap back 🔄",
+    "You’re a walking slap donation machine 💸",
+    "Glove tier: God. Player tier: Trash 🗑️",
+    "Every time you slap, a noob gets stronger ✨",
+    "Void farming? You're just farming Ls 📦",
 
--- Create BodyVelocity
-local BV = Instance.new("BodyVelocity")
-BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-BV.Velocity = Vector3.zero
-BV.Parent = RootPart
+    -- New 50
+    "You swing like you're underwater 🐟",
+    "That slap wouldn’t knock over a paper bag 📦",
+    "Void looks at you and says 'nah I’m good' 😭",
+    "You run more than you slap 🏃‍♂️💨",
+    "Glove? More like tickle weapon 🫨",
+    "You’re a free kill with a cooldown ⏱️",
+    "Your gloves should come with a warning: Do Not Rely On 🪧",
+    "You’ve mastered the art of respawning 🔁",
+    "Your KD ratio filed for bankruptcy 📉",
+    "Slap Royale? You just spectate that mode 👁️",
+    "Slapped so hard you got lore 💀",
+    "Even the arena tries to kick you out 😭",
+    "You’re the reason tutorial exists 📚",
+    "You have more void trips than slaps 🚪",
+    "Glove says 'primary', skill says 'optional' 🧤",
+    "You bring a slap to a punchline 🤣",
+    "Default glove dodged you out of shame 😳",
+    "You got folded like a Roblox Ragdoll 💫",
+    "I’d rather 1v1 a rock, it moves more than you 🪨",
+    "You're farming Ls like it's currency 💰",
+    "Even a frozen glove got more movement ❄️",
+    "You slapped and missed the map 🎯",
+    "Slapple doesn’t warn you, it avoids you 🙅",
+    "I saw your glove do a U-turn from embarrassment 🔁",
+    "You drop faster than FPS on graphics 10 📉",
+    "Every round you're in is free XP for others 💥",
+    "You’d still lose if it was slap turn-based ⏳",
+    "You got juked by someone emoting 😐",
+    "That void trip was your best play all game 🕳️",
+    "You’re not AFK but might as well be 💤",
+    "Arena doesn’t fear you, it pities you 😔",
+    "Slap mechanic asked to not be associated with you 🙃",
+    "Your glove’s most used stat? Respawn time 😭",
+    "Bob sees you and leaves the server 💀",
+    "You boost others' KD just by existing 📈",
+    "You can't even glitch right 😹",
+    "You're the lag spike, but for your own team 📶",
+    "You fell off harder than Reaper in 2023 😬",
+    "Even the mail glove returns you unopened 📦",
+    "You bring down the average IQ of the arena 🧠",
+    "Slap sound effect plays out of pity 🔊",
+    "Your glove is the only part that does damage—by leaving 😭",
+    "You get flung more than objects in physics demos 🎢",
+    "You teleport like you're lost 😵",
+    "You slapped a clone and still missed 😵‍💫",
+    "Even Elude wouldn’t dodge that performance 🌀",
+    "Your combo is death and disappointment 💀",
+    "You fell off so hard the void rejected you 🙅‍♂️",
+    "Default glove laughs when you pick it 😹",
+    "You're a highlight reel—for the enemy 🏆",
+    "Gamepass can’t fix that level of L 🧾"
+}
 
--- UI toggle
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "FlingToggleGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+-- === Trigger Word Categories ===
+local triggers = {
+    Accusations = {"exploit", "cheat", "hacker", "script", "exploit", "abuse", "autoclick", "macro"},
+    SkillTrash = {"noob", "trash", "bad", "ez", "carried", "skill issue", "get good"},
+    TryhardClaims = {"sweat", "tryhard", "nerd", "no life", "overkill", "touch grass"},
+    Crybabies = {"stop", "unfair", "abuse", "why", "toxic", "please", "report"},
+    LagBlamers = {"lag", "ping", "desync", "rubberband", "delay"},
+    OneVOne = {"1v1", "duel", "square up", "fight me"},
+    Hackusation2 = {"aimbot", "trigger", "auto", "esp", "hitbox", "reach"},
+    Carried = {"carried", "deadweight", "bottom frag", "backpack", "useless"},
+    RandomToxic = {"cry", "mad", "kid", "salty", "rage", "baby"},
+    GearBlamers = {"op glove", "pay to win", "broken glove", "nerf", "unbalanced"}
+}
 
-local toggleButton = Instance.new("TextButton")
-toggleButton.Size = UDim2.new(0, 120, 0, 40)
-toggleButton.Position = UDim2.new(0, 10, 1, -50)
-toggleButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-toggleButton.TextColor3 = Color3.new(1, 1, 1)
-toggleButton.Font = Enum.Font.SourceSansBold
-toggleButton.TextSize = 20
-toggleButton.Text = "Fling: OFF"
-toggleButton.Parent = screenGui
+-- === Slap Battles Specific Roasts ===
+local replies = {
+    Accusations = {
+        "%s, blaming exploits won’t save you from Ls 💀",
+        "You call it hacking, I call it skill 😎 %s",
+        "Even Bob plays more legit than you, %s 🪦",
+        "Report me after you learn how to slap, %s 👋",
+        "You're not losing to scripts, you're losing to facts, %s 📉"
+    },
+    SkillTrash = {
+        "%s, you're the tutorial boss of Slap Battles 🤡",
+        "Skill issue? Nah, full-on gameplay crisis, %s 🚨",
+        "You can’t even land a slap with extended 😭 %s",
+        "%s, get good before you get gloves 🔧",
+        "You're not trash %s, you're biodegradable ♻️"
+    },
+    TryhardClaims = {
+        "%s calling tryhard when they can't dodge a bus glove 😭",
+        "Sorry I slapped you into orbit %s 🚀",
+        "%s, grass is for those who can't touch the leaderboard 💀",
+        "Tryhard? You tried nothing and still failed 😬 %s",
+        "%s, get a better excuse before you cry next round 🧂"
+    },
+    Crybabies = {
+        "Crying already, %s? Just uninstall 😭",
+        "%s, this isn’t daycare, this is SLAP BATTLES 💢",
+        "Keep crying, %s, the void loves your tears 😹",
+        "Report me for being better? Stay mad %s 🤣",
+        "Skill hurts your feelings huh %s 💀"
+    },
+    LagBlamers = {
+        "Lag isn't your enemy, skill is, %s 📶💀",
+        "%s always lags right after losing 😭",
+        "Bro blames ping for walking into Slapple 😐 %s",
+        "Lag? No, just pure garbage gameplay %s 🗑️",
+        "Desync? More like excuse.exe crashing again %s 💾"
+    },
+    OneVOne = {
+        "1v1 you? You’d fall off the map before we start 😹 %s",
+        "%s, I'd 1v1 but bullying isn’t allowed 🤡",
+        "You want a duel? Try dueling your awareness first %s 👁️",
+        "Fight you? You get outplayed by AFKs %s 😂",
+        "Your ego's the only thing bigger than your Ls %s 🥴"
+    },
+    Hackusation2 = {
+        "No aimlock, just aim skill. Cope, %s 🎯",
+        "%s thinks skill is hacks 😭",
+        "If I was cheating I’d be farming faster, %s 💀",
+        "You losing doesn’t equal me hacking, %s 🤡",
+        "Even Anticheat slapped you for crying, %s 📋"
+    },
+    Carried = {
+        "Carried? %s, you’re the glove I’m dragging 🧤",
+        "You’re not even on the team, just extra weight %s 🧱",
+        "%s spectates more than they play 😂",
+        "Deadweight like %s makes me stronger 💪",
+        "You ain’t carried, you're cargo 🚚 %s"
+    },
+    RandomToxic = {
+        "Cry harder %s, it fuels my slap streak 😈",
+        "%s salty enough to be used on fries 🍟",
+        "You're raging harder than the bus glove impact %s 💥",
+        "You mad %s? Go slap a wall 🤡",
+        "Touching grass won’t save you now %s 🌱"
+    },
+    GearBlamers = {
+        "%s mad because my glove has better synergy 💀",
+        "OP glove? Cope harder, %s 😎",
+        "%s crying about loadout instead of adapting 📉",
+        "It’s not pay to win, it’s you refusing to learn 🤓 %s",
+        "Broken glove? Nah, you’re broken at the game %s ⚠️"
+    }
+}
 
-toggleButton.MouseButton1Click:Connect(function()
-	flingEnabled = not flingEnabled
-	toggleButton.Text = "Fling: " .. (flingEnabled and "ON" or "OFF")
+-- === Utility ===
+local function shuffle(t)
+    for i = #t, 2, -1 do
+        local j = math.random(i)
+        t[i], t[j] = t[j], t[i]
+    end
+end
+
+local function containsTrigger(text, triggerList)
+    local lowered = text:lower()
+    for _, trigger in ipairs(triggerList) do
+        if string.find(lowered, trigger) then
+            return true
+        end
+    end
+    return false
+end
+
+-- === Auto Message Spam ===
+task.spawn(function()
+    while true do
+        shuffle(messages)
+        for _, msg in ipairs(messages) do
+            if channel then
+                channel:SendAsync(msg)
+            end
+            task.wait(10) -- Adjust for spam speed
+        end
+    end
 end)
 
--- Check for Spectator tool
-local function hasSpectatorTool(player)
-	local function check(container)
-		for _, item in pairs(container:GetChildren()) do
-			if item:IsA("Tool") and item.Name == "Spectator" then
-				return true
-			end
-		end
-		return false
-	end
-	return check(player.Backpack) or check(player.Character)
-end
+-- === Reactive Slapbacks ===
+TextChatService.MessageReceived:Connect(function(message)
+    local sender = message.TextSource
+    local text = message.Text
 
--- Modified getNearestTarget to refuse players with Y > 315
-local function getNearestTarget()
-	local nearestPlayer = nil
-	local nearestDist = math.huge
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer 
-			and player.Character 
-			and player.Character:FindFirstChild("HumanoidRootPart") 
-			and player.Character:FindFirstChild("Humanoid") 
-			and player.Character.Humanoid.Health > 0 
-			and not hasSpectatorTool(player) then
+    if not sender or sender.UserId == LocalPlayer.UserId then return end
+    local name = sender.Name
 
-			local targetRoot = player.Character.HumanoidRootPart
-
-			-- Refuse players above Y=315
-			if targetRoot.Position.Y > 315 then
-				continue
-			end
-
-			local dist = (targetRoot.Position - RootPart.Position).Magnitude
-			if dist < nearestDist then
-				nearestDist = dist
-				nearestPlayer = player
-			end
-		end
-	end
-	return nearestPlayer
-end
-
--- For delaying tool activation
-local lastSlapTime = 0
-local slapCooldown = 1 -- 1 second delay between activates
-
-RunService.Heartbeat:Connect(function(dt)
-	if disableFlingTimer > 0 then
-		disableFlingTimer = disableFlingTimer - dt
-		return
-	end
-
-	if not flingEnabled then
-		BV.Velocity = Vector3.zero
-		return
-	end
-
-	local targetPlayer = getNearestTarget()
-	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-		local targetRoot = targetPlayer.Character.HumanoidRootPart
-
-		local offset = Vector3.new(
-			math.random(-10, 10) * 0.05,
-			math.random(0, 10) * 0.1,
-			math.random(-10, 10) * 0.05
-		)
-
-		local desiredPos = targetRoot.Position + offset
-		local currentPos = RootPart.Position
-		local direction = (desiredPos - currentPos).Unit
-		local speed = 666
-		local velocity = direction * speed
-
-		BV.Velocity = velocity
-
-		-- Smoothly snap closer if falling behind
-		if (desiredPos - currentPos).Magnitude > 30 then
-			RootPart.CFrame = CFrame.new(currentPos:Lerp(desiredPos, 0.3))
-		end
-
-		-- Only activate tool every 1 second
-		lastSlapTime = lastSlapTime + dt
-		if lastSlapTime >= slapCooldown then
-			local tool = updateTool()
-			activateTool(tool)
-			lastSlapTime = 0
-		end
-	else
-		BV.Velocity = Vector3.zero
-		lastSlapTime = 0
-	end
-end)
-
-
--- Check for equipped tool
-local function updateTool()
-	for _, item in pairs(Character:GetChildren()) do
-		if item:IsA("Tool") then
-			return item
-		end
-	end
-	return nil
-end
-
--- Activate equipped tool
-local function activateTool(tool)
-	if tool and tool.Parent == Character then
-		pcall(function()
-			tool:Activate()
-		end)
-	end
-end
-
--- Move to safe spawn position on respawn
-local function glideToSafePosition()
-	local bodyPos = Instance.new("BodyPosition")
-	bodyPos.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	bodyPos.P = 1e4
-	bodyPos.D = 100
-	bodyPos.Position = safePosition
-	bodyPos.Parent = RootPart
-
-	delay(2, function()
-		bodyPos:Destroy()
-	end)
-end
-
--- On character respawn
-local function onCharacterAdded(char)
-	Character = char
-	RootPart = char:WaitForChild("HumanoidRootPart")
-	BV = Instance.new("BodyVelocity")
-	BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-	BV.Velocity = Vector3.zero
-	BV.Parent = RootPart
-	disableFlingTimer = 3.5
-	glideToSafePosition()
-end
-
-LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
-
--- Main fling loop
-RunService.Heartbeat:Connect(function(dt)
-	if disableFlingTimer > 0 then
-		disableFlingTimer = disableFlingTimer - dt
-		return
-	end
-
-	if not flingEnabled then
-		BV.Velocity = Vector3.zero
-		return
-	end
-
-	local tool = updateTool()
-	activateTool(tool)
-
-	local targetPlayer = getNearestTarget()
-	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-		local targetRoot = targetPlayer.Character.HumanoidRootPart
-
-		local offset = Vector3.new(
-			math.random(-10, 10) * 0.05,
-			math.random(0, 10) * 0.1,
-			math.random(-10, 10) * 0.05
-		)
-
-		local desiredPos = targetRoot.Position + offset
-		local currentPos = RootPart.Position
-		local direction = (desiredPos - currentPos).Unit
-		local speed = 666
-		local velocity = direction * speed
-
-		BV.Velocity = velocity
-
-		-- Smoothly snap closer if falling behind
-		if (desiredPos - currentPos).Magnitude > 30 then
-			RootPart.CFrame = CFrame.new(currentPos:Lerp(desiredPos, 0.3))
-		end
-	else
-		BV.Velocity = Vector3.zero
-	end
+    for category, triggerList in pairs(triggers) do
+        if containsTrigger(text, triggerList) then
+            local categoryReplies = replies[category]
+            if categoryReplies then
+                local reply = string.format(categoryReplies[math.random(1, #categoryReplies)], name)
+                channel:SendAsync(reply)
+                break
+            end
+        end
+    end
 end)
