@@ -117,7 +117,7 @@ local function onCharacterAdded(char)
 	Character = char
 	RootPart = char:WaitForChild("HumanoidRootPart")
 	local humanoid = char:WaitForChild("Humanoid")
-	humanoid.WalkSpeed = 50 -- Higher walk speed for faster chasing
+	humanoid.WalkSpeed = 111 -- Higher walk speed for faster chasing
 	BV = Instance.new("BodyVelocity")
 	BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
 	BV.Velocity = Vector3.zero
