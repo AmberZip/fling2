@@ -50,7 +50,7 @@ local function hasSpectatorTool(player)
 	return check(player.Backpack) or check(player.Character)
 end
 
--- Get nearest valid target (no Y limit)
+-- Modified getNearestTarget to refuse players with Y > 315
 local function getNearestTarget()
 	local nearestPlayer = nil
 	local nearestDist = math.huge
@@ -63,6 +63,12 @@ local function getNearestTarget()
 			and not hasSpectatorTool(player) then
 
 			local targetRoot = player.Character.HumanoidRootPart
+
+			-- Refuse players above Y=315
+			if targetRoot.Position.Y > 315 then
+				continue
+			end
+
 			local dist = (targetRoot.Position - RootPart.Position).Magnitude
 			if dist < nearestDist then
 				nearestDist = dist
@@ -72,6 +78,58 @@ local function getNearestTarget()
 	end
 	return nearestPlayer
 end
+
+-- For delaying tool activation
+local lastSlapTime = 0
+local slapCooldown = 1 -- 1 second delay between activates
+
+RunService.Heartbeat:Connect(function(dt)
+	if disableFlingTimer > 0 then
+		disableFlingTimer = disableFlingTimer - dt
+		return
+	end
+
+	if not flingEnabled then
+		BV.Velocity = Vector3.zero
+		return
+	end
+
+	local targetPlayer = getNearestTarget()
+	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local targetRoot = targetPlayer.Character.HumanoidRootPart
+
+		local offset = Vector3.new(
+			math.random(-10, 10) * 0.05,
+			math.random(0, 10) * 0.1,
+			math.random(-10, 10) * 0.05
+		)
+
+		local desiredPos = targetRoot.Position + offset
+		local currentPos = RootPart.Position
+		local direction = (desiredPos - currentPos).Unit
+		local speed = 666
+		local velocity = direction * speed
+
+		BV.Velocity = velocity
+
+		-- Smoothly snap closer if falling behind
+		if (desiredPos - currentPos).Magnitude > 30 then
+			RootPart.CFrame = CFrame.new(currentPos:Lerp(desiredPos, 0.3))
+		end
+
+		-- Only activate tool every 1 second
+		lastSlapTime = lastSlapTime + dt
+		if lastSlapTime >= slapCooldown then
+			local tool = updateTool()
+			activateTool(tool)
+			lastSlapTime = 0
+		end
+	else
+		BV.Velocity = Vector3.zero
+		lastSlapTime = 0
+	end
+end)
+
 
 -- Check for equipped tool
 local function updateTool()
