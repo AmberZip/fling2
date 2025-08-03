@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -37,7 +36,6 @@ toggleButton.MouseButton1Click:Connect(function()
 	toggleButton.Text = "Fling: " .. (flingEnabled and "ON" or "OFF")
 end)
 
--- Check for Spectator tool
 local function hasSpectatorTool(player)
 	local function check(container)
 		for _, item in pairs(container:GetChildren()) do
@@ -50,22 +48,23 @@ local function hasSpectatorTool(player)
 	return check(player.Backpack) or check(player.Character)
 end
 
--- Nearest target
 local function getNearestTarget()
 	local nearestPlayer = nil
 	local nearestDist = math.huge
 	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer 
-			and player.Character 
-			and player.Character:FindFirstChild("HumanoidRootPart") 
-			and player.Character:FindFirstChild("Humanoid") 
-			and player.Character.Humanoid.Health > 0 
+		if player ~= LocalPlayer
+			and player.Character
+			and player.Character:FindFirstChild("HumanoidRootPart")
+			and player.Character:FindFirstChild("Humanoid")
+			and player.Character.Humanoid.Health > 0
 			and not hasSpectatorTool(player) then
 
-			local targetRoot = player.Character.HumanoidRootPart
-			if targetRoot.Position.Y > 315 then continue end
+			local pos = player.Character.HumanoidRootPart.Position
+			if pos.Y < 15 or pos.Y > 250 or math.abs(pos.X) > 9999 or math.abs(pos.Z) > 9999 then
+				continue
+			end
 
-			local dist = (targetRoot.Position - RootPart.Position).Magnitude
+			local dist = (pos - RootPart.Position).Magnitude
 			if dist < nearestDist then
 				nearestDist = dist
 				nearestPlayer = player
@@ -75,7 +74,6 @@ local function getNearestTarget()
 	return nearestPlayer
 end
 
--- Tool stuff
 local lastSlapTime = 0
 local slapCooldown = 1
 
@@ -96,12 +94,11 @@ local function activateTool(tool)
 	end
 end
 
--- Safe spawn glide
 local function glideToSafePosition()
 	local bodyPos = Instance.new("BodyPosition")
-	bodyPos.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	bodyPos.P = 1e4
-	bodyPos.D = 100
+	bodyPos.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+	bodyPos.P = 2e4
+	bodyPos.D = 500
 	bodyPos.Position = safePosition
 	bodyPos.Parent = RootPart
 
@@ -110,14 +107,13 @@ local function glideToSafePosition()
 	end)
 end
 
--- On respawn
 local function onCharacterAdded(char)
 	Character = char
 	RootPart = char:WaitForChild("HumanoidRootPart")
 	local humanoid = char:WaitForChild("Humanoid")
 	humanoid.WalkSpeed = 50
 	BV = Instance.new("BodyVelocity")
-	BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+	BV.MaxForce = Vector3.new(1e9, 1e9, 1e9)
 	BV.Velocity = Vector3.zero
 	BV.Parent = RootPart
 	disableFlingTimer = 3.5
@@ -126,7 +122,9 @@ end
 
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- Fling logic
+-- Velocity memory to predict movement
+local previousTargetPosition = nil
+
 RunService.Heartbeat:Connect(function(dt)
 	if disableFlingTimer > 0 then
 		disableFlingTimer = disableFlingTimer - dt
@@ -144,38 +142,43 @@ RunService.Heartbeat:Connect(function(dt)
 	local targetPlayer = getNearestTarget()
 	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
 		local targetRoot = targetPlayer.Character.HumanoidRootPart
+		local currentPos = RootPart.Position
+		local targetPos = targetRoot.Position
+
+		-- Predict target movement
+		if previousTargetPosition then
+			local velocityGuess = (targetPos - previousTargetPosition) / dt
+			targetPos = targetPos + velocityGuess * 0.05 -- predictive chase
+		end
+		previousTargetPosition = targetRoot.Position
 
 		local offset = Vector3.new(
-			math.random(-5, 5) * 0.05,
-			math.random(0, 5) * 0.1,
-			math.random(-5, 5) * 0.05
+			math.random(-10, 10) * 0.05,
+			math.random(0, 10) * 0.1,
+			math.random(-10, 10) * 0.05
 		)
 
-		local desiredPos = targetRoot.Position + offset
-		local currentPos = RootPart.Position
+		local desiredPos = targetPos + offset
 		local direction = (desiredPos - currentPos).Unit
-		local speed = 777 -- Increased chase speed
-		local velocity = direction * speed
+		local speed = 777
+		BV.Velocity = direction * speed
 
-		BV.Velocity = velocity
-
-		local distance = (desiredPos - currentPos).Magnitude
-
-		if distance > 100 then
-			-- Emergency snap if way too far
-			RootPart.CFrame = CFrame.new(desiredPos)
-		elseif distance > 15 then
-			-- Soft snap if falling slightly behind
-			RootPart.CFrame = CFrame.new(currentPos:Lerp(desiredPos, 0.6))
+		local dist = (desiredPos - currentPos).Magnitude
+		if dist > 25 then
+			RootPart.CFrame = CFrame.new(currentPos:Lerp(desiredPos, 0.8)) -- aggressive lerp
+		end
+		if dist > 120 then
+			RootPart.CFrame = CFrame.new(desiredPos) -- instant teleport catch-up
 		end
 
-		lastSlapTime = lastSlapTime + dt
+		lastSlapTime += dt
 		if lastSlapTime >= slapCooldown then
-			activateTool(tool)
+			activateTool(updateTool())
 			lastSlapTime = 0
 		end
 	else
 		BV.Velocity = Vector3.zero
 		lastSlapTime = 0
+		previousTargetPosition = nil
 	end
 end)
