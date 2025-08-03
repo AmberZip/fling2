@@ -8,7 +8,7 @@ local RootPart = Character:WaitForChild("HumanoidRootPart")
 
 local flingEnabled = false
 local disableFlingTimer = 0
-local safePosition = Vector3.new(0, 50, 0) -- Adjust safe respawn glide location
+local safePosition = Vector3.new(0, 50, 0)
 
 -- Create BodyVelocity
 local BV = Instance.new("BodyVelocity")
@@ -50,7 +50,7 @@ local function hasSpectatorTool(player)
 	return check(player.Backpack) or check(player.Character)
 end
 
--- Refuse players with Y > 315
+-- Nearest target
 local function getNearestTarget()
 	local nearestPlayer = nil
 	local nearestDist = math.huge
@@ -75,11 +75,10 @@ local function getNearestTarget()
 	return nearestPlayer
 end
 
--- For delaying tool activation
+-- Tool stuff
 local lastSlapTime = 0
 local slapCooldown = 1
 
--- Check for equipped tool
 local function updateTool()
 	for _, item in pairs(Character:GetChildren()) do
 		if item:IsA("Tool") then
@@ -89,7 +88,6 @@ local function updateTool()
 	return nil
 end
 
--- Activate equipped tool
 local function activateTool(tool)
 	if tool and tool.Parent == Character then
 		pcall(function()
@@ -98,7 +96,7 @@ local function activateTool(tool)
 	end
 end
 
--- Move to safe spawn position
+-- Safe spawn glide
 local function glideToSafePosition()
 	local bodyPos = Instance.new("BodyPosition")
 	bodyPos.MaxForce = Vector3.new(1e5, 1e5, 1e5)
@@ -112,12 +110,12 @@ local function glideToSafePosition()
 	end)
 end
 
--- On character respawn
+-- On respawn
 local function onCharacterAdded(char)
 	Character = char
 	RootPart = char:WaitForChild("HumanoidRootPart")
 	local humanoid = char:WaitForChild("Humanoid")
-	humanoid.WalkSpeed = 111 -- Higher walk speed for faster chasing
+	humanoid.WalkSpeed = 50
 	BV = Instance.new("BodyVelocity")
 	BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
 	BV.Velocity = Vector3.zero
@@ -128,7 +126,7 @@ end
 
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- Main fling logic
+-- Fling logic
 RunService.Heartbeat:Connect(function(dt)
 	if disableFlingTimer > 0 then
 		disableFlingTimer = disableFlingTimer - dt
@@ -148,26 +146,31 @@ RunService.Heartbeat:Connect(function(dt)
 		local targetRoot = targetPlayer.Character.HumanoidRootPart
 
 		local offset = Vector3.new(
-			math.random(-10, 10) * 0.05,
-			math.random(0, 10) * 0.1,
-			math.random(-10, 10) * 0.05
+			math.random(-5, 5) * 0.05,
+			math.random(0, 5) * 0.1,
+			math.random(-5, 5) * 0.05
 		)
 
 		local desiredPos = targetRoot.Position + offset
 		local currentPos = RootPart.Position
 		local direction = (desiredPos - currentPos).Unit
-		local speed = 666
+		local speed = 777 -- Increased chase speed
 		local velocity = direction * speed
 
 		BV.Velocity = velocity
 
-		if (desiredPos - currentPos).Magnitude > 30 then
-			RootPart.CFrame = CFrame.new(currentPos:Lerp(desiredPos, 0.5)) -- Faster snapping
+		local distance = (desiredPos - currentPos).Magnitude
+
+		if distance > 100 then
+			-- Emergency snap if way too far
+			RootPart.CFrame = CFrame.new(desiredPos)
+		elseif distance > 15 then
+			-- Soft snap if falling slightly behind
+			RootPart.CFrame = CFrame.new(currentPos:Lerp(desiredPos, 0.6))
 		end
 
 		lastSlapTime = lastSlapTime + dt
 		if lastSlapTime >= slapCooldown then
-			local tool = updateTool()
 			activateTool(tool)
 			lastSlapTime = 0
 		end
